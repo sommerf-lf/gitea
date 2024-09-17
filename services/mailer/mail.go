@@ -7,9 +7,11 @@ package mailer
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"html/template"
 	"mime"
+	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
@@ -26,11 +28,13 @@ import (
 	"code.gitea.io/gitea/modules/markup"
 	"code.gitea.io/gitea/modules/markup/markdown"
 	"code.gitea.io/gitea/modules/setting"
+	"code.gitea.io/gitea/modules/storage"
 	"code.gitea.io/gitea/modules/timeutil"
 	"code.gitea.io/gitea/modules/translation"
 	incoming_payload "code.gitea.io/gitea/services/mailer/incoming/payload"
 	"code.gitea.io/gitea/services/mailer/token"
 
+	"golang.org/x/net/html"
 	"gopkg.in/gomail.v2"
 )
 
@@ -232,6 +236,15 @@ func composeIssueCommentMessages(ctx *mailCommentContext, lang string, recipient
 		return nil, err
 	}
 
+	if setting.MailService.Base64EmbedImages {
+		bodyStr := string(body)
+		bodyStr, err = inlineImages(bodyStr, ctx)
+		if err != nil {
+			return nil, err
+		}
+		body = template.HTML(bodyStr)
+	}
+
 	actType, actName, tplName := actionToTemplate(ctx.Issue, ctx.ActionType, commentType, reviewType)
 
 	if actName != "new" {
@@ -361,6 +374,78 @@ func composeIssueCommentMessages(ctx *mailCommentContext, lang string, recipient
 	}
 
 	return msgs, nil
+}
+
+func inlineImages(body string, ctx *mailCommentContext) (string, error) {
+	doc, err := html.Parse(strings.NewReader(body))
+	if err != nil {
+		log.Error("Failed to parse HTML body: %v", err)
+		return "", err
+	}
+
+	var processNode func(*html.Node)
+	processNode = func(n *html.Node) {
+		if n.Type == html.ElementNode {
+			if n.Data == "img" {
+				for i, attr := range n.Attr {
+					if attr.Key == "src" {
+						attachmentPath := attr.Val
+						dataURI, err := attachmentSrcToDataURI(attachmentPath, ctx)
+						if err != nil {
+							log.Trace("attachmentSrcToDataURI not possible: %v", err) // Not an error, just skip. This is probably an image from outside the gitea instance.
+							continue
+						}
+						log.Trace("Old value of src attribute: %s, new value (first 100 characters): %s", attr.Val, dataURI[:100])
+						n.Attr[i].Val = dataURI
+					}
+				}
+			}
+		}
+
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			processNode(c)
+		}
+	}
+
+	processNode(doc)
+
+	var buf bytes.Buffer
+	err = html.Render(&buf, doc)
+	if err != nil {
+		log.Error("Failed to render modified HTML: %v", err)
+		return "", err
+	}
+	return buf.String(), nil
+}
+
+func attachmentSrcToDataURI(attachmentPath string, ctx *mailCommentContext) (string, error) {
+	parts := strings.Split(attachmentPath, "/attachments/")
+	if len(parts) <= 1 {
+		return "", fmt.Errorf("invalid attachment path: %s", attachmentPath)
+	}
+
+	attachmentUUID := parts[len(parts)-1]
+	attachment, err := repo_model.GetAttachmentByUUID(ctx, attachmentUUID)
+	if err != nil {
+		return "", err
+	}
+
+	fr, err := storage.Attachments.Open(attachment.RelativePath())
+	if err != nil {
+		return "", err
+	}
+	defer fr.Close()
+
+	content := make([]byte, attachment.Size)
+	if _, err := fr.Read(content); err != nil {
+		return "", err
+	}
+
+	mimeType := http.DetectContentType(content)
+	encoded := base64.StdEncoding.EncodeToString(content)
+	dataURI := fmt.Sprintf("data:%s;base64,%s", mimeType, encoded)
+
+	return dataURI, nil
 }
 
 func generateMessageIDForIssue(issue *issues_model.Issue, comment *issues_model.Comment, actionType activities_model.ActionType) string {
