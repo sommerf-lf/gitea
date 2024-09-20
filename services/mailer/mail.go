@@ -199,7 +199,7 @@ func SendCollaboratorMail(u, doer *user_model.User, repo *repo_model.Repository)
 	SendAsync(msg)
 }
 
-func composeIssueCommentMessages(ctx *mailCommentContext, lang string, recipients []*user_model.User, fromMention bool, info string) ([]*Message, error) {
+func composeIssueCommentMessages(ctx *MailCommentContext, lang string, recipients []*user_model.User, fromMention bool, info string) ([]*Message, error) {
 	var (
 		subject string
 		link    string
@@ -238,7 +238,7 @@ func composeIssueCommentMessages(ctx *mailCommentContext, lang string, recipient
 
 	if setting.MailService.Base64EmbedImages {
 		bodyStr := string(body)
-		bodyStr, err = inlineImages(bodyStr, ctx)
+		bodyStr, err = Base64InlineImages(bodyStr, ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -376,7 +376,7 @@ func composeIssueCommentMessages(ctx *mailCommentContext, lang string, recipient
 	return msgs, nil
 }
 
-func inlineImages(body string, ctx *mailCommentContext) (string, error) {
+func Base64InlineImages(body string, ctx *MailCommentContext) (string, error) {
 	doc, err := html.Parse(strings.NewReader(body))
 	if err != nil {
 		log.Error("Failed to parse HTML body: %v", err)
@@ -390,7 +390,7 @@ func inlineImages(body string, ctx *mailCommentContext) (string, error) {
 				for i, attr := range n.Attr {
 					if attr.Key == "src" {
 						attachmentPath := attr.Val
-						dataURI, err := attachmentSrcToDataURI(attachmentPath, ctx)
+						dataURI, err := AttachmentSrcToBase64DataURI(attachmentPath, ctx)
 						if err != nil {
 							log.Trace("attachmentSrcToDataURI not possible: %v", err) // Not an error, just skip. This is probably an image from outside the gitea instance.
 							continue
@@ -418,7 +418,10 @@ func inlineImages(body string, ctx *mailCommentContext) (string, error) {
 	return buf.String(), nil
 }
 
-func attachmentSrcToDataURI(attachmentPath string, ctx *mailCommentContext) (string, error) {
+func AttachmentSrcToBase64DataURI(attachmentPath string, ctx *MailCommentContext) (string, error) {
+	if !strings.HasPrefix(attachmentPath, setting.AppURL) { // external image
+		return "", fmt.Errorf("external image")
+	}
 	parts := strings.Split(attachmentPath, "/attachments/")
 	if len(parts) <= 1 {
 		return "", fmt.Errorf("invalid attachment path: %s", attachmentPath)
@@ -479,7 +482,7 @@ func generateMessageIDForRelease(release *repo_model.Release) string {
 	return fmt.Sprintf("<%s/releases/%d@%s>", release.Repo.FullName(), release.ID, setting.Domain)
 }
 
-func generateAdditionalHeaders(ctx *mailCommentContext, reason string, recipient *user_model.User) map[string]string {
+func generateAdditionalHeaders(ctx *MailCommentContext, reason string, recipient *user_model.User) map[string]string {
 	repo := ctx.Issue.Repo
 
 	return map[string]string{
@@ -543,7 +546,7 @@ func SendIssueAssignedMail(ctx context.Context, issue *issues_model.Issue, doer 
 	}
 
 	for lang, tos := range langMap {
-		msgs, err := composeIssueCommentMessages(&mailCommentContext{
+		msgs, err := composeIssueCommentMessages(&MailCommentContext{
 			Context:    ctx,
 			Issue:      issue,
 			Doer:       doer,
