@@ -398,6 +398,7 @@ func Base64InlineImages(body string, ctx *MailCommentContext) (string, error) {
 						}
 						log.Trace("Old value of src attribute: %s, new value (first 100 characters): %s", attr.Val, dataURI[:100])
 						n.Attr[i].Val = dataURI
+						break
 					}
 				}
 			}
