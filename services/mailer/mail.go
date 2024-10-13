@@ -21,7 +21,9 @@ import (
 
 	activities_model "code.gitea.io/gitea/models/activities"
 	issues_model "code.gitea.io/gitea/models/issues"
+	access_model "code.gitea.io/gitea/models/perm/access"
 	repo_model "code.gitea.io/gitea/models/repo"
+	"code.gitea.io/gitea/models/unit"
 	user_model "code.gitea.io/gitea/models/user"
 	"code.gitea.io/gitea/modules/base"
 	"code.gitea.io/gitea/modules/emoji"
@@ -421,6 +423,7 @@ func Base64InlineImages(body string, ctx *MailCommentContext) (string, error) {
 }
 
 func AttachmentSrcToBase64DataURI(attachmentPath string, ctx *MailCommentContext) (string, error) {
+	maxSizePerImageAttachment := setting.MailService.Base64EmbedImagesMaxSizePerAttachment
 	if !strings.HasPrefix(attachmentPath, setting.AppURL) { // external image
 		return "", fmt.Errorf("external image")
 	}
@@ -435,6 +438,16 @@ func AttachmentSrcToBase64DataURI(attachmentPath string, ctx *MailCommentContext
 		return "", err
 	}
 
+	// "Doer" is theoretically not the correct permission check (as Doer created the action on which to send), but as this is batch processed the receipants can't be accessed.
+	// Therefore we check the Doer, with which we counter leaking information as a Doer brute force attack on attachments would be possible.
+	perm, err := access_model.GetUserRepoPermission(ctx, ctx.Issue.Repo, ctx.Doer)
+	if err != nil {
+		return "", err
+	}
+	if !perm.CanRead(unit.TypeIssues) {
+		return "", fmt.Errorf("no permission")
+	}
+
 	fr, err := storage.Attachments.Open(attachment.RelativePath())
 	if err != nil {
 		return "", err
@@ -446,7 +459,16 @@ func AttachmentSrcToBase64DataURI(attachmentPath string, ctx *MailCommentContext
 		return "", err
 	}
 
+	if len(content) > int(maxSizePerImageAttachment) {
+		return "", fmt.Errorf("image too large (%d bytes) of max %d bytes", len(content), maxSizePerImageAttachment)
+	}
+
 	mimeType := http.DetectContentType(content)
+
+	if !strings.HasPrefix(mimeType, "image/") {
+		return "", fmt.Errorf("not an image")
+	}
+
 	encoded := base64.StdEncoding.EncodeToString(content)
 	dataURI := fmt.Sprintf("data:%s;base64,%s", mimeType, encoded)
 
