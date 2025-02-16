@@ -378,7 +378,7 @@ func searchIssueByTime(t *testing.T) {
 			SearchOptions{
 				UpdatedAfterUnix: optional.Some(int64(0)),
 			},
-			[]int64{22, 21, 17, 16, 15, 14, 13, 12, 11, 20, 6, 5, 19, 18, 10, 7, 4, 9, 8, 3, 2, 1},
+			[]int64{22, 21, 17, 16, 15, 14, 13, 12, 11, 20, 6, 5, 19, 18, 10, 7, 4, 9, 8, 3, 2, 23, 1},
 		},
 	}
 	for _, test := range tests {
