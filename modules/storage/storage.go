@@ -169,12 +169,21 @@ func initAvatars() (err error) {
 }
 
 func initAttachments() (err error) {
+	log.Info("initAttachments")
 	if !setting.Attachment.Enabled {
 		Attachments = discardStorage("Attachment isn't enabled")
 		return nil
 	}
 	log.Info("Initialising Attachment storage with type: %s", setting.Attachment.Storage.Type)
 	Attachments, err = NewStorage(setting.Attachment.Storage.Type, setting.Attachment.Storage)
+	log.Info("storage FINDME: %v\n", setting.Attachment.Storage.Path)
+	// check if directory exists and print the result human readable
+	if _, err := os.Stat(setting.Attachment.Storage.Path); os.IsNotExist(err) {
+		log.Info("Attachment storage path does not exist: %s\n", setting.Attachment.Storage.Path)
+	} else {
+		log.Info("Attachment storage path exists: %s\n", setting.Attachment.Storage.Path)
+	}
+
 	return err
 }
 
