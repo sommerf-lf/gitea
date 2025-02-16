@@ -66,6 +66,7 @@ func PrepareAppDataPath() error {
 	// For quickstart, the parent directories should be created automatically for first startup (eg: a flag or a check of INSTALL_LOCK).
 	// Now we can take the first step to do correctly (using Mkdir) in other packages, and prepare the AppDataPath here, then make a refactor in future.
 
+	fmt.Printf("AppDataPath: %s\n", AppDataPath)
 	st, err := os.Stat(AppDataPath)
 	if os.IsNotExist(err) {
 		err = os.MkdirAll(AppDataPath, os.ModePerm)

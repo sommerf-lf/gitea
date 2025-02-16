@@ -38,7 +38,9 @@ func InitTest(requireGitea bool) {
 	// setting.UI.Notification.EventSourceUpdateTime = time.Second
 
 	setting.AppWorkPath = giteaRoot
+	log.Info("AppWorkPath: %s", setting.AppWorkPath)
 	setting.CustomPath = filepath.Join(setting.AppWorkPath, "custom")
+	log.Info("CustomPath: %s", setting.CustomPath)
 	if requireGitea {
 		giteaBinary := "gitea"
 		if setting.IsWindows {
@@ -66,6 +68,8 @@ func InitTest(requireGitea bool) {
 	} else {
 		setting.CustomConf = giteaConf
 	}
+	log.Info("GiteaConf: %s", setting.CustomConf)
+	log.Info("CustomConf: %s", setting.CustomConf)
 
 	unittest.InitSettings()
 	setting.Repository.DefaultBranch = "master" // many test code still assume that default branch is called "master"

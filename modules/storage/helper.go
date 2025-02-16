@@ -4,6 +4,7 @@
 package storage
 
 import (
+	"code.gitea.io/gitea/modules/log"
 	"fmt"
 	"io"
 	"net/url"
@@ -19,6 +20,7 @@ func (s discardStorage) Open(_ string) (Object, error) {
 }
 
 func (s discardStorage) Save(_ string, _ io.Reader, _ int64) (int64, error) {
+	log.Info("DiscardStorage.Save(%s)\n", s)
 	return 0, fmt.Errorf("%s", s)
 }
 

@@ -207,6 +207,7 @@ func (m *MinioStorage) Open(path string) (Object, error) {
 
 // Save saves a file to minio
 func (m *MinioStorage) Save(path string, r io.Reader, size int64) (int64, error) {
+	log.Info("MinioStorage.Save(%s, %d)\n", path, size)
 	uploadInfo, err := m.client.PutObject(
 		m.ctx,
 		m.bucket,

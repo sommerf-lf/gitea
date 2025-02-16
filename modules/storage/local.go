@@ -60,6 +60,7 @@ func (l *LocalStorage) Open(path string) (Object, error) {
 
 // Save a file
 func (l *LocalStorage) Save(path string, r io.Reader, size int64) (int64, error) {
+	log.Info("LocalStorage.Save(%s, %d) local\n", path, size)
 	p := l.buildLocalPath(path)
 	if err := os.MkdirAll(filepath.Dir(p), os.ModePerm); err != nil {
 		return 0, err

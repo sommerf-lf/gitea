@@ -49,6 +49,7 @@ func InitSettings() {
 		setting.CustomConf = filepath.Join(setting.CustomPath, "conf/app-unittest-tmp.ini")
 		_ = os.Remove(setting.CustomConf)
 	}
+	log.Info("CustomConf: %s", setting.CustomConf)
 	setting.InitCfgProvider(setting.CustomConf)
 	setting.LoadCommonSettings()
 
@@ -72,6 +73,7 @@ type TestOptions struct {
 // MainTest a reusable TestMain(..) function for unit tests that need to use a
 // test database. Creates the test database, and sets necessary settings.
 func MainTest(m *testing.M, testOptsArg ...*TestOptions) {
+	log.Info("MainTest Alive: %v\n", testOptsArg)
 	testOpts := util.OptionalArg(testOptsArg, &TestOptions{})
 	giteaRoot = test.SetupGiteaRoot()
 	setting.CustomPath = filepath.Join(giteaRoot, "custom")
@@ -101,12 +103,14 @@ func MainTest(m *testing.M, testOptsArg ...*TestOptions) {
 	if err != nil {
 		fatalTestError("TempDir: %v\n", err)
 	}
+	log.Info("Appdata Findme: %s", appDataPath)
 	setting.AppDataPath = appDataPath
 	setting.AppWorkPath = giteaRoot
 	setting.StaticRootPath = giteaRoot
 	setting.GravatarSource = "https://secure.gravatar.com/avatar/"
 
 	setting.Attachment.Storage.Path = filepath.Join(setting.AppDataPath, "attachments")
+	log.Info("Attachment Path: %s", setting.Attachment.Storage.Path)
 
 	setting.LFS.Storage.Path = filepath.Join(setting.AppDataPath, "lfs")
 

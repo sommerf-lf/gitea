@@ -179,6 +179,7 @@ func (a *AzureBlobStorage) Open(path string) (Object, error) {
 
 // Save saves a file to azure blob storage
 func (a *AzureBlobStorage) Save(path string, r io.Reader, size int64) (int64, error) {
+	log.Info("AzureBlobStorage.Save(%s, %d)\n", path, size)
 	rd := util.NewCountingReader(r)
 	_, err := a.client.UploadStream(
 		a.ctx,
